@@ -9,6 +9,8 @@
 *.jpeg
 *.webp
 *.xwd
+!assets/
+!assets/*.png
 
 # Runtime and private Codex state
 .codex/

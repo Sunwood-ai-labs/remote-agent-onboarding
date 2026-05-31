@@ -1,4 +1,6 @@
-# Remote Agent Onboarding Skill
+![Remote Agent Onboarding Skill - ECLIPSE -](assets/eclipse-header.png)
+
+# Remote Agent Onboarding Skill - ECLIPSE -
 
 Codex skill for creating, repairing, and verifying a Linux remote-agent workstation with SSH, X11/Xfce, Codex Desktop, Chrome, Browser/IAB, mobile remote-control, and Codex Automations proof surfaces.
 
