@@ -1,0 +1,4 @@
+interface:
+  display_name: "Remote Agent Onboarding"
+  short_description: "Create and verify remote-agent employee VMs with Codex Desktop, Chrome, and Browser/IAB."
+  default_prompt: "Create or repair a remote-agent employee VM so Codex Desktop and Browser work."
