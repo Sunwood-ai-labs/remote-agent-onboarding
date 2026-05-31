@@ -1,0 +1,24 @@
+.DS_Store
+*.log
+*.tmp
+*.bak
+*.sqlite
+*.db
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.xwd
+
+# Runtime and private Codex state
+.codex/
+.config/
+browser-profile*/
+chrome-profile*/
+*.sock
+
+# VM and backup artifacts
+*.qcow2
+*.img
+*.iso
+backup-*/
