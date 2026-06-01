@@ -152,6 +152,12 @@ WORK="$HOME/Workspaces/AGENT_NAME"
 TS=$(date +%Y%m%d-%H%M%S)
 BACKUP="$HOME/.codex/backups/thread-clean-$TS"
 export BACKUP
+# Space-separated thread IDs that were confirmed as onboarding/smoke-test
+# threads. Leave CLEAN_ALL_THREADS unset unless the user explicitly asked for
+# every local VM thread to be removed.
+THREAD_IDS="REPLACE_WITH_CONFIRMED_SMOKE_THREAD_IDS"
+CLEAN_ALL_THREADS="${CLEAN_ALL_THREADS:-no}"
+export THREAD_IDS CLEAN_ALL_THREADS
 mkdir -p "$WORK/notes" "$WORK/artifacts" "$WORK/tmp" "$BACKUP"
 cp -a "$HOME/.codex/state_5.sqlite" "$BACKUP/state_5.sqlite.before-thread-clean" 2>/dev/null || true
 python3 - <<'"'"'PY'"'"'
@@ -162,7 +168,15 @@ db = home / ".codex/state_5.sqlite"
 if db.exists():
     con = sqlite3.connect(db)
     con.row_factory = sqlite3.Row
-    rows = list(con.execute("select id, rollout_path from threads"))
+    requested = [x for x in os.environ.get("THREAD_IDS", "").split() if x and x != "REPLACE_WITH_CONFIRMED_SMOKE_THREAD_IDS"]
+    if os.environ.get("CLEAN_ALL_THREADS") == "yes":
+        rows = list(con.execute("select id, rollout_path from threads"))
+    elif requested:
+        q = ",".join("?" for _ in requested)
+        rows = list(con.execute(f"select id, rollout_path from threads where id in ({q})", requested))
+    else:
+        print("No THREAD_IDS supplied; leaving local thread DB unchanged.")
+        rows = []
     archive = backup / "session-rollouts"
     archive.mkdir(exist_ok=True)
     for r in rows:
@@ -248,9 +262,13 @@ echo "== state =="
 python3 - <<'"'"'PY'"'"'
 import json, pathlib
 p=pathlib.Path.home()/".codex/.codex-global-state.json"
-d=json.loads(p.read_text())
-print("installation", d.get("electron-local-remote-control-installation-id"))
-print("environment", d.get("electron-local-remote-control-environment-id"))
+if p.exists():
+    d=json.loads(p.read_text())
+    print("installation", d.get("electron-local-remote-control-installation-id"))
+    print("environment", d.get("electron-local-remote-control-environment-id"))
+else:
+    print("installation", None)
+    print("environment", None)
 PY
 sqlite3 ~/.codex/state_5.sqlite \
   "select server_name, environment_id, updated_at from remote_control_enrollments;" 2>/dev/null || true
@@ -433,10 +451,14 @@ ssh codex-ubuntu '
 python3 - <<'"'"'PY'"'"'
 import json, pathlib
 p=pathlib.Path.home()/".codex/.codex-global-state.json"
-d=json.loads(p.read_text())
-s=d.setdefault("electron-persisted-atom-state", {})
-print("agent-mode-by-host-id", s.get("agent-mode-by-host-id"))
-print("heartbeat-thread-permissions-by-id", s.get("heartbeat-thread-permissions-by-id"))
+if p.exists():
+    d=json.loads(p.read_text())
+    s=d.setdefault("electron-persisted-atom-state", {})
+    print("agent-mode-by-host-id", s.get("agent-mode-by-host-id"))
+    print("heartbeat-thread-permissions-by-id", s.get("heartbeat-thread-permissions-by-id"))
+else:
+    print("agent-mode-by-host-id", None)
+    print("heartbeat-thread-permissions-by-id", None)
 PY
 '
 ```
@@ -558,11 +580,11 @@ gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null || tr
 gsettings set org.gnome.desktop.lockdown disable-lock-screen true 2>/dev/null || true
 SH
 chmod +x ~/.local/bin/remote-agent-no-blank.sh
-cat > ~/.config/autostart/remote-agent-no-blank.desktop <<'"'"'DESKTOP'"'"'
+cat > ~/.config/autostart/remote-agent-no-blank.desktop <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Remote Agent No Blank
-Exec=/home/codex/.local/bin/remote-agent-no-blank.sh
+Exec=$HOME/.local/bin/remote-agent-no-blank.sh
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
 DESKTOP
