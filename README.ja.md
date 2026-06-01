@@ -72,24 +72,17 @@ v0.1.0では、特に以下のガードレールを重視します。
   smoke-test `THREAD_IDS` を対象にし、全履歴削除は明示指示時だけにする。
 - 専用ワークスペースを作成し、`~/Documents/Codex` など既定パスを向ける場合は既存内容をバックアップする。
 
-## 記事で使った証跡画像
+## スクリーンショット
 
-v0.1.0のガードレールは、ローカルの `note-article-archive` ワークスペースに保存した2本の日本語記事を作りながら整理しました。
-記事で使った代表画像をこのリポジトリにもコピーし、スキルが求める証跡面をREADME上でも見えるようにしています。
+このスキルがVMオンボーディングで求める視覚的な確認例です。実際のデスクトップ画面、利用可能なCodex Desktop、Codexモバイル接続、専用ワークスペース整理後の状態を示します。
 
-### スマホからのOSセットアップ
-
-元記事アーカイブslug:
-`note-article-archive/articles/eclipse02-os-setup`
+### Linuxデスクトップセットアップ
 
 ![ECLIPSE02 elementary OSセットアップ記事サムネイル](assets/article-evidence/eclipse02-os-setup-thumbnail.png)
 
 ![ECLIPSE02 日本語デスクトップのロック解除後証跡](assets/article-evidence/eclipse02-os-unlocked-desktop.png)
 
-### Codex Desktop と Codexモバイル接続
-
-元記事アーカイブslug:
-`note-article-archive/articles/eclipse02-remote-agent-mobile-desktop`
+### Codex Desktop と Codexモバイル
 
 ![ECLIPSE02 Codexモバイルデスクトップ記事サムネイル](assets/article-evidence/eclipse02-mobile-desktop-thumbnail.png)
 
