@@ -27,13 +27,19 @@ confirmed-current.
 
 Required proof surfaces:
 
-- Host/VM reachability: SSH to `codex-ubuntu`.
+- Host/VM reachability: SSH to the target user with the intended key; verify
+  `sshd` is enabled/active, port 22 is reachable from the operator machine,
+  and `~/.ssh` / `authorized_keys` permissions are sane.
 - CLI/app: `codex --version`, app bundle/processes.
 - Config: `~/.codex/config.toml` has remote features enabled.
-- GUI: X11 `Codex` window is visible through `DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority`.
+- GUI: X11 `Codex` window is visible through the live display and Xauthority;
+  verify the session is active and unlocked, not just that a window exists.
 - Browser binary: Chrome exists and launches on X11.
 - Persistent Chrome profile: when site session continuity matters, Chrome can launch with the agent profile and CDP on `127.0.0.1:9222`.
 - Browser plugin/IAB: `/tmp/codex-browser-use/*.sock` is current and logs show IAB ready.
+- Workspace/thread hygiene: if onboarding created smoke-test threads, verify
+  whether the user wants them kept. Local thread cleanup must distinguish the
+  VM's local SQLite/session state from account/cloud project history.
 
 ## Setup vs Operation
 
@@ -42,15 +48,31 @@ Keep setup and operation separate in both the work and the final report.
 Setup means making the workstation capable:
 
 - VM identity, SSH, `codex` user, X11/Xfce, and `DISPLAY=:0` are established.
+- SSH is not "done" until key login works from the operator machine, `sshd`
+  is enabled and active, and port 22 has an external LAN reachability check.
 - Codex CLI/Desktop, launchers, and `~/.codex/config.toml` are installed or repaired.
+- Default Codex posture is explicitly set and smoke-tested: model, reasoning
+  effort, sandbox mode, and approval policy must be visible in an actual
+  `codex exec` run log, not only present in config text.
+- Desktop proof screenshots are required for user-facing readiness. For Codex
+  Desktop work, save a screenshot after the final restart and ensure it shows a
+  usable Codex surface, not only process/log output.
 - Google Chrome stable is installed and X11 smoke-tested.
 - Optional but recommended for browser-heavy agents: `agent-chrome-profile-browser` exists, its helper scripts are executable, and `/home/codex/.config/google-chrome-codex-profile/Default` can be used.
 - Browser/IAB pipes and Desktop logs show a ready integration surface.
+- A dedicated workspace exists for the agent, with any legacy default path
+  symlinked or redirected to it when the app expects a default folder.
 
 Operation means using the prepared workstation safely:
 
 - Start or reuse the persistent Chrome profile for logged-in web tasks.
 - Verify the active proof surface before acting: process args, CDP `/json/version`, `chrome://version`, visible window, target site logged-in state, or IAB logs as relevant.
+- Do not use `about:blank` as the final desktop proof. It only proves a blank
+  browser tab, not that the workstation is ready. Open the requested app or a
+  meaningful logged-in/home surface before taking the proof screenshot.
+- If screenshots are black, color-shifted, or show only a blank surface, check
+  session lock state before diagnosing video drivers. Run `loginctl` and verify
+  the target session is `Active=yes` and `LockedHint=no`.
 - Capture the Xfce desktop through `xfdesktop` when root screenshots are black.
 - If you stop Codex Desktop or Chrome to capture a clean screenshot, restart the
   requested app afterward and re-verify process, window, and log readiness before
@@ -71,6 +93,10 @@ Operation means using the prepared workstation safely:
   `codex remote-control start` path requires the standalone Codex install at
   `~/.codex/packages/standalone/current/codex`; an npm-only install can run
   Desktop but fail remote-control daemon startup.
+- When migrating Codex authentication from another VM, copy only the minimal
+  auth material first (`~/.codex/auth.json`) and preserve the target VM's
+  launcher/config identity. Back up target auth/state before copying, then
+  restart Desktop and verify it reaches an authenticated Codex surface.
 - For form submissions, confirm visible UI commitment, especially chips/tokens and uploaded filenames.
 - End by reporting which surfaces were actually verified and which were not.
 
@@ -82,6 +108,12 @@ to the report time:
 ```bash
 ssh codex-ubuntu '
 echo "== identity =="; hostname; date; whoami
+echo "== ssh =="
+systemctl is-enabled ssh 2>/dev/null || systemctl is-enabled sshd 2>/dev/null || true
+systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null || true
+ss -ltnp 2>/dev/null | grep ":22 " || true
+ls -ld ~/.ssh 2>/dev/null || true
+ls -l ~/.ssh/authorized_keys 2>/dev/null || true
 echo "== codex =="
 codex --version || true
 egrep "remote_connections|remote_control|workspace_dependencies" ~/.codex/config.toml || true
@@ -111,6 +143,63 @@ Interpretation rule: `127.0.0.1` listeners are local-only. A refused LAN probe
 means browser access from a phone on the LAN is not proven, even if the VM is
 healthy and remote feature flags are enabled.
 
+For dedicated workspace and local thread cleanup, prefer a reversible cleanup:
+
+```bash
+ssh codex-ubuntu '
+set -euo pipefail
+WORK="$HOME/Workspaces/AGENT_NAME"
+TS=$(date +%Y%m%d-%H%M%S)
+BACKUP="$HOME/.codex/backups/thread-clean-$TS"
+export BACKUP
+mkdir -p "$WORK/notes" "$WORK/artifacts" "$WORK/tmp" "$BACKUP"
+cp -a "$HOME/.codex/state_5.sqlite" "$BACKUP/state_5.sqlite.before-thread-clean" 2>/dev/null || true
+python3 - <<'"'"'PY'"'"'
+import json, pathlib, sqlite3, shutil, os
+home = pathlib.Path.home()
+backup = pathlib.Path(os.environ["BACKUP"])
+db = home / ".codex/state_5.sqlite"
+if db.exists():
+    con = sqlite3.connect(db)
+    con.row_factory = sqlite3.Row
+    rows = list(con.execute("select id, rollout_path from threads"))
+    archive = backup / "session-rollouts"
+    archive.mkdir(exist_ok=True)
+    for r in rows:
+        if r["rollout_path"]:
+            p = pathlib.Path(r["rollout_path"]).expanduser()
+            if p.exists() and str(p.resolve()).startswith(str((home / ".codex").resolve())):
+                shutil.move(str(p), str(archive / p.name))
+    ids = [r["id"] for r in rows]
+    if ids:
+        q = ",".join("?" for _ in ids)
+        con.execute(f"delete from thread_dynamic_tools where thread_id in ({q})", ids)
+        con.execute(f"delete from thread_spawn_edges where parent_thread_id in ({q}) or child_thread_id in ({q})", ids + ids)
+        con.execute(f"delete from agent_job_items where assigned_thread_id in ({q})", ids)
+        con.execute(f"delete from threads where id in ({q})", ids)
+        con.commit()
+    print("threads_after", con.execute("select count(*) from threads").fetchone()[0])
+p = home / ".codex/.codex-global-state.json"
+if p.exists():
+    d = json.loads(p.read_text())
+    for key in ("projectless-thread-ids", "thread-workspace-root-hints", "thread-projectless-output-directories", "composer-prompt-drafts-v1", "prompt-history"):
+        d.pop(key, None)
+    d["heartbeat-thread-permissions-by-id"] = {}
+    d["unread-thread-ids-by-host-v1"] = {"local": []}
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+PY
+if [ -e "$HOME/Documents/Codex" ] && [ ! -L "$HOME/Documents/Codex" ]; then
+  mv "$HOME/Documents/Codex" "$BACKUP/Documents-Codex-old"
+fi
+mkdir -p "$HOME/Documents"
+ln -sfn "$WORK" "$HOME/Documents/Codex"
+'
+```
+
+Cleanup rule: never imply account/cloud project history was deleted when only
+local VM SQLite/session state was cleaned. If the sidebar still shows remote
+projects, report them as account/cloud history unless separately verified.
+
 For mobile remote-control proof, run the CLI daemon path and check enrollment:
 
 ```bash
@@ -128,6 +217,90 @@ sqlite3 --version >/dev/null 2>&1 || sudo apt-get update -qq && sudo apt-get ins
 sqlite3 ~/.codex/state_5.sqlite "select server_name, environment_id, updated_at from remote_control_enrollments;"
 '
 ```
+
+Mobile setup is not complete from any single one of these signals alone:
+
+- `remote_control = true` in `config.toml`
+- the Codex Mobile sidebar item being visible
+- `has-seen-codex-mobile-announcement = true`
+- an `electron-local-remote-control-installation-id` in global state
+
+Completion requires daemon/control-socket proof plus enrollment/visibility
+state. At minimum report:
+
+```bash
+ssh codex-ubuntu '
+echo "== config =="
+egrep "remote_connections|remote_control" ~/.codex/config.toml || true
+echo "== daemon =="
+codex app-server daemon version 2>&1 || true
+ls -l ~/.codex/app-server-control 2>/dev/null || true
+echo "== remote start =="
+codex remote-control start --json 2>&1 || true
+echo "== state =="
+python3 - <<'"'"'PY'"'"'
+import json, pathlib
+p=pathlib.Path.home()/".codex/.codex-global-state.json"
+d=json.loads(p.read_text())
+print("installation", d.get("electron-local-remote-control-installation-id"))
+print("environment", d.get("electron-local-remote-control-environment-id"))
+PY
+sqlite3 ~/.codex/state_5.sqlite \
+  "select server_name, environment_id, updated_at from remote_control_enrollments;" 2>/dev/null || true
+'
+```
+
+If `codex app-server daemon version` cannot connect to
+`~/.codex/app-server-control/app-server-control.sock`, the CLI-managed mobile
+daemon is not running. Start/repair it before saying mobile is set up.
+
+When migrating or repairing mobile setup, live daemon output and DB enrollment
+must agree. If `codex remote-control start --json` returns one `environmentId`
+but `remote_control_enrollments` contains older or duplicate target rows,
+stop/start the daemon and keep only the live target row:
+
+```bash
+ssh codex-ubuntu '
+export PATH="$HOME/.local/bin:$PATH"
+codex remote-control stop --json 2>&1 || true
+sleep 3
+codex remote-control start --json | tee /tmp/remote-control-start.json
+python3 - <<'"'"'PY'"'"'
+import json, pathlib, sqlite3
+
+home = pathlib.Path.home()
+start = json.loads(pathlib.Path("/tmp/remote-control-start.json").read_text())
+server = start.get("serverName")
+environment = start.get("environmentId")
+con = sqlite3.connect(home / ".codex/state_5.sqlite")
+rows = list(con.execute(
+    "select rowid from remote_control_enrollments "
+    "where server_name=? and environment_id=? order by updated_at desc",
+    (server, environment),
+))
+if rows:
+    keep = rows[0][0]
+    con.execute(
+        "delete from remote_control_enrollments where server_name=? and rowid<>?",
+        (server, keep),
+    )
+    con.execute(
+        "update remote_control_enrollments set app_server_client_name=? where rowid=?",
+        ("Codex Desktop", keep),
+    )
+    con.commit()
+for row in con.execute(
+    "select server_name, environment_id, server_id, app_server_client_name, updated_at "
+    "from remote_control_enrollments"
+):
+    print(row)
+PY
+'
+```
+
+If the source VM itself does not have a running standalone daemon, do not treat
+its stale enrollment as authoritative. Mirror its portable user preferences, but
+use the target VM's standalone daemon to create fresh target-local enrollment.
 
 If `remote-control start` reports `managed standalone Codex install not found`,
 install the standalone CLI with the official installer, ensure
@@ -209,6 +382,11 @@ sed -n "1,180p" ~/.local/bin/codex-desktop-force-restart 2>/dev/null
 Expected config values:
 
 ```toml
+model = "gpt-5.5"
+model_reasoning_effort = "low"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+
 [features]
 remote_connections = true
 remote_control = true
@@ -216,6 +394,264 @@ workspace_dependencies = false
 ```
 
 The launcher should use `#!/usr/bin/env bash` and execute `/home/codex/codex-app/start.sh`.
+
+For remote-agent employee VMs, the default operating posture is full local
+workspace access with no interactive approval prompts, unless the user asks for a
+safer mode or the target environment is not externally trusted. Verify this with
+a lightweight `codex exec` smoke test before reporting completion:
+
+```bash
+ssh codex-ubuntu '
+cd /tmp
+codex exec --skip-git-repo-check --color never \
+  "Reply exactly: remote-agent Codex OK" 2>&1 | tee /tmp/codex-defaults-smoke.log
+'
+```
+
+The smoke log should show:
+
+```text
+model: gpt-5.5
+approval: never
+sandbox: danger-full-access
+reasoning effort: low
+```
+
+For Codex Desktop, config is not the whole truth. The Desktop composer can keep
+its own persisted permission state under `~/.codex/.codex-global-state.json`.
+After setting `config.toml`, also verify and, when needed, repair:
+
+```bash
+ssh codex-ubuntu '
+python3 - <<'"'"'PY'"'"'
+import json, pathlib
+p=pathlib.Path.home()/".codex/.codex-global-state.json"
+d=json.loads(p.read_text())
+s=d.setdefault("electron-persisted-atom-state", {})
+print("agent-mode-by-host-id", s.get("agent-mode-by-host-id"))
+print("heartbeat-thread-permissions-by-id", s.get("heartbeat-thread-permissions-by-id"))
+PY
+'
+```
+
+Expected Desktop state for the default full-access posture:
+
+```json
+{
+  "agent-mode-by-host-id": {"local": "full-access"},
+  "heartbeat-thread-permissions-by-id": {
+    "<thread-id>": {
+      "approvalPolicy": "never",
+      "approvalsReviewer": "user",
+      "sandboxPolicy": {"type": "dangerFullAccess"}
+    }
+  }
+}
+```
+
+If the UI still shows `Default permissions` / `デフォルト権限`, do not report
+full access. Back up `~/.codex/.codex-global-state.json`, update the Desktop
+persisted state, restart Codex Desktop, and capture a screenshot that visibly
+shows `Full access` / `フルアクセス` plus the expected model setting.
+
+When aligning a target VM with a known-good source VM such as VM101, copy only
+the portable settings. Do not copy source-machine remote identity:
+
+Portable:
+
+- `model`, `model_reasoning_effort`, `approval_policy`,
+  `approvals_reviewer`, and `sandbox_mode`
+- `[features].remote_connections` and `[features].remote_control`
+- Desktop persisted `agent-mode-by-host-id.local = full-access`
+- Desktop persisted `composer-permission-mode-visibility.full-access = true`
+- Desktop thread permissions with `approvalPolicy = never` and
+  `sandboxPolicy.type = dangerFullAccess`
+- onboarding role/work mode, for example `engineering` / `coding`
+
+Do not copy:
+
+- `electron-local-remote-control-installation-id`
+- `electron-local-remote-control-environment-id`
+- `remote_control_enrollments.server_id`
+- `remote_control_enrollments.environment_id`
+- `remote_control_enrollments.server_name`
+
+Copying those identity fields can make the target VM appear as the source VM in
+mobile/remote-control surfaces. Keep or regenerate target-local identity and
+keep `server_name` equal to the target hostname.
+
+Then restart Codex Desktop and capture a visible proof screenshot:
+
+```bash
+ssh codex-ubuntu '
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority gnome-screenshot \
+  -f /tmp/codex-desktop-defaults-proof.png
+ls -lh /tmp/codex-desktop-defaults-proof.png
+'
+scp codex-ubuntu:/tmp/codex-desktop-defaults-proof.png .
+```
+
+The screenshot must show a normal Codex Desktop surface such as the home screen,
+project list, or the task composer. A screenshot of terminal output alone is not
+enough when the user asked whether the Desktop app works.
+
+## Desktop Blank/Lock Prevention
+
+Before final screenshots on desktop-agent VMs, make screen blanking and lock
+state explicit. A VM can have live GUI processes while the visible console is
+locked or showing a greeter on another display.
+
+Read the current state:
+
+```bash
+ssh codex-ubuntu '
+loginctl list-sessions
+loginctl show-user "$USER" -p State -p Sessions -p Display -p RuntimePath || true
+for s in $(loginctl list-sessions --no-legend | awk "{print \$1}"); do
+  loginctl show-session "$s" -p Name -p Display -p Desktop -p Type -p Active -p State -p LockedHint 2>/dev/null
+done
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority xset q 2>/dev/null |
+  egrep "timeout:|DPMS is|Monitor is" || true
+'
+```
+
+If the target user session is locked or inactive, unlock it and return to the
+desktop TTY before capturing proof:
+
+```bash
+ssh codex-ubuntu '
+sudo loginctl unlock-sessions || true
+sudo loginctl unlock-session SESSION_ID || true
+sudo chvt 7 || true
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority xset s off -dpms s noblank || true
+'
+```
+
+For persistent no-blank setup, apply both desktop settings and an autostart
+hook. Adapt `$HOME`, user, and Xauthority paths for non-default users such as
+`eclipse`:
+
+```bash
+ssh codex-ubuntu '
+mkdir -p ~/.config/autostart ~/.local/bin
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority \
+  gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null || true
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority \
+  gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null || true
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority \
+  gsettings set org.gnome.desktop.lockdown disable-lock-screen true 2>/dev/null || true
+DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority xset s off -dpms s noblank || true
+cat > ~/.local/bin/remote-agent-no-blank.sh <<'"'"'SH'"'"'
+#!/usr/bin/env bash
+export DISPLAY=${DISPLAY:-:0}
+export XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
+xset s off -dpms s noblank 2>/dev/null || true
+gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null || true
+gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null || true
+gsettings set org.gnome.desktop.lockdown disable-lock-screen true 2>/dev/null || true
+SH
+chmod +x ~/.local/bin/remote-agent-no-blank.sh
+cat > ~/.config/autostart/remote-agent-no-blank.desktop <<'"'"'DESKTOP'"'"'
+[Desktop Entry]
+Type=Application
+Name=Remote Agent No Blank
+Exec=/home/codex/.local/bin/remote-agent-no-blank.sh
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+DESKTOP
+'
+```
+
+If `gnome-screenshot` or VNC capture returns black while `xwininfo` shows
+windows, first re-check `LockedHint` and `Active`. In one verified elementary
+OS/Pantheon VM, `DISPLAY=:0` held the user session while a LightDM greeter was
+active on `:1`; `loginctl unlock-sessions` and `chvt 7` restored a normal VNC
+screenshot.
+
+Screenshot proof should be visually meaningful:
+
+- Codex proof: authenticated Codex home, project list, or the requested Codex UI.
+- Chrome proof: target page, `chrome://version`, or real logged-in surface.
+- Desktop proof: wallpaper/panel/dock plus the requested application.
+
+Do not accept a blank browser page, lock screen, greeter, or all-black PNG as
+completion proof.
+
+## Codex Auth Migration
+
+When the user asks to bring Codex authentication from another VM, migrate the
+smallest useful auth surface first. Do not copy the entire `~/.codex` directory
+unless the user explicitly asks for all history/state; whole-directory copies can
+carry stale installation IDs, remote-control enrollments, paths, automations,
+logs, and source-VM identity.
+
+Recommended flow from source `codex-ubuntu` to target `eclipse@VM_IP`:
+
+```bash
+ts=$(date +%Y%m%d-%H%M%S)
+mkdir -p "./auth-migration-$ts"
+
+ssh codex-ubuntu '
+python3 - <<'"'"'PY'"'"'
+import json, pathlib
+p=pathlib.Path.home()/".codex/auth.json"
+d=json.loads(p.read_text())
+print("source_auth_bytes", p.stat().st_size)
+print("source_auth_keys", sorted(d.keys()))
+print("source_auth_mode", d.get("auth_mode"))
+PY
+'
+
+scp codex-ubuntu:/home/codex/.codex/auth.json "./auth-migration-$ts/auth.json.from-source"
+
+ssh -i KEY eclipse@VM_IP '
+mkdir -p ~/.codex/backups
+[ ! -f ~/.codex/auth.json ] ||
+  cp -a ~/.codex/auth.json ~/.codex/backups/auth.json.before-migration-'"$ts"'
+'
+
+scp -i KEY "./auth-migration-$ts/auth.json.from-source" eclipse@VM_IP:/home/eclipse/.codex/auth.json
+
+ssh -i KEY eclipse@VM_IP '
+chmod 600 ~/.codex/auth.json
+python3 - <<'"'"'PY'"'"'
+import json, pathlib
+p=pathlib.Path.home()/".codex/auth.json"
+d=json.loads(p.read_text())
+print("target_auth_bytes", p.stat().st_size)
+print("target_auth_keys", sorted(d.keys()))
+print("target_auth_mode", d.get("auth_mode"))
+PY
+'
+```
+
+After copying auth, restart Codex Desktop using a detached launcher. Avoid broad
+`pkill -f codex` patterns that can match the SSH command itself; kill exact old
+PIDs or launch a fresh Desktop if none is running:
+
+```bash
+ssh -i KEY eclipse@VM_IP '
+export DISPLAY=:0 XAUTHORITY=/var/run/lightdm/root/:0 XDG_RUNTIME_DIR=/run/user/1000
+nohup /home/eclipse/codex-app/start.sh \
+  >~/.cache/codex-desktop-auth-migration.log 2>&1 < /dev/null &
+sleep 10
+pgrep -af "/home/eclipse/codex-app|codex app-server|webview-server" | head -40
+DISPLAY=:0 XAUTHORITY=/var/run/lightdm/root/:0 xwininfo -root -tree 2>&1 |
+  egrep "Codex|codex" | head -60
+'
+```
+
+Verification is visual and state-based:
+
+- `~/.codex/auth.json` exists, is `0600`, and has the expected auth keys.
+- Codex Desktop restarts and shows an authenticated surface, not only a
+  sign-in page.
+- First-run onboarding is acceptable after auth migration; complete or skip it,
+  then capture the normal Codex home/project surface.
+- If the source and target app versions differ, state this explicitly. A working
+  `auth.json` can survive version skew, but version mismatch is a residual risk.
+- Do not report mobile remote-control migration complete from auth migration
+  alone. Remote-control identity/enrollment must be checked separately.
 
 ## VM Creation Baseline
 
@@ -480,6 +916,10 @@ Report the exact proof surfaces in the final answer:
 - setup status: installed/repaired pieces and setup-only blockers
 - operation status: live surfaces used in the current task and operation-only blockers
 - CLI version
+- default model, reasoning effort, sandbox mode, and approval policy from the
+  latest `codex exec` smoke log
+- screenshot path for the final visible Desktop proof, with what is visible in
+  the image
 - Chrome version and path
 - default browser path
 - persistent Chrome profile/CDP status, if used or relevant
@@ -490,6 +930,31 @@ Report the exact proof surfaces in the final answer:
 
 ## Common Failures
 
+- Config text exists but runtime uses different defaults: run `codex exec` and
+  read the session header. Do not infer defaults from `config.toml` alone.
+- SSH is not proven by a successful Proxmox console or QGA ping. Verify
+  key-based login from the operator machine, `sshd` active/enabled, port 22
+  listening, and a LAN `nc -vz VM_IP 22` check.
+- Existing threads are not fully cleaned by deleting only prompt history in
+  `.codex-global-state.json`. Also inspect `~/.codex/state_5.sqlite` and
+  archive/delete related rollout files. Keep a DB backup before changing it.
+- A clean local thread list does not mean account/cloud project history was
+  deleted. Treat sidebar project entries as a separate proof surface.
+- A dedicated workspace is not proven by creating a folder alone. Verify the
+  path exists and any legacy default such as `~/Documents/Codex` resolves to it.
+- `gpt-5.5 low` default not proven: the smoke log must show both
+  `model: gpt-5.5` and `reasoning effort: low`.
+- Full-access default not proven: the smoke log must show
+  `sandbox: danger-full-access` and `approval: never`. `--strict-config`
+  only validates keys; it does not prove runtime behavior.
+- `codex exec` outside a git repository stops before model proof: include
+  `--skip-git-repo-check` for `/tmp` smoke tests.
+- `codex exec --no-alt-screen` fails under the `exec` subcommand: `--no-alt-screen`
+  is a top-level interactive option, not an `exec` option in the verified CLI.
+  Use `--color never` for readable noninteractive logs.
+- CLI smoke succeeds but no screenshot is captured: not enough for Desktop
+  readiness. Capture a final image showing the Codex Desktop home/project/task
+  surface and inspect it before reporting completion.
 - `DISPLAY=` empty over SSH: normal for SSH. Use `DISPLAY=:0 XAUTHORITY=$HOME/.Xauthority` for GUI proof.
 - `Browser plugin exists but browsers=[]`: often stale IAB pipe/session or app-server/node_repl mismatch. Restart Codex Desktop and confirm a new `/tmp/codex-browser-use/*.sock`.
 - Chrome not found: install Google Chrome stable, not just Firefox/snap browser.
