@@ -15,13 +15,7 @@ Keep this repository focused on reusable remote-agent onboarding workflows.
 Before opening a PR, run:
 
 ```bash
+python3 scripts/validate_repo.py
 git diff --check
-python3 - <<'PY'
-from pathlib import Path
-for path in [Path("SKILL.md"), Path("agents/openai.yaml")]:
-    text = path.read_text()
-    assert text.strip(), path
-print("basic file check ok")
-PY
 rg -n -i "password|secret|token|api.?key|private key|credential|cookie" . -g '!/.git/**' || true
 ```

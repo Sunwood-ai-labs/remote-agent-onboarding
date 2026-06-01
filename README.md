@@ -2,6 +2,8 @@
 
 # Remote Agent Onboarding Skill - ECLIPSE -
 
+[English](README.md) | [日本語](README.ja.md)
+
 Codex skill for creating, repairing, and verifying a Linux remote-agent workstation with SSH, X11/Xfce, Codex Desktop, Chrome, Browser/IAB, mobile remote-control, and Codex Automations proof surfaces.
 
 The skill is written for operators who need evidence-backed VM readiness rather than package-version-only checks.
@@ -33,6 +35,24 @@ Then start a new Codex session and ask for a remote-agent VM setup, repair, or v
 - `SKILL.md` - main Codex skill entrypoint
 - `agents/openai.yaml` - UI metadata
 - `references/codex-automations.md` - detailed Automations verification and smoke-test procedure
+- `scripts/validate_repo.py` - repository validation script
+- `.github/workflows/validate.yml` - GitHub Actions validation workflow
+
+## Usage Example
+
+```text
+Use remote-agent-onboarding to verify this Ubuntu remote-agent VM.
+Check SSH, Codex Desktop, Chrome, Browser/IAB, mobile remote control, and Automations as separate proof surfaces.
+```
+
+## Validation
+
+Run the same checks used by CI:
+
+```bash
+python3 scripts/validate_repo.py
+git diff --check
+```
 
 ## Safety Notes
 
@@ -46,6 +66,8 @@ Before publishing logs, screenshots, or copied VM state, remove:
 - VM images, SSH keys, and `.codex` database files
 
 Automation smoke tests modify the local Codex sqlite database and must back up the DB first. Remove smoke jobs after verification so they do not continue running.
+
+Some setup commands intentionally download official installers or packages. Inspect remote scripts before running them when your environment requires pinning, checksum verification, or a stricter supply-chain policy.
 
 ## License
 

@@ -118,6 +118,7 @@ ssh codex-ubuntu '
 export PATH="$HOME/.local/bin:$PATH"
 test -x ~/.codex/packages/standalone/current/codex ||
   { curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/codex-install.sh &&
+    sed -n "1,80p" /tmp/codex-install.sh &&
     sh /tmp/codex-install.sh; }
 codex app-server daemon bootstrap
 codex app-server daemon enable-remote-control
@@ -248,6 +249,10 @@ Install/update Codex CLI as needed:
 ```bash
 ssh codex-ubuntu 'sudo npm install -g @openai/codex@latest && codex --version'
 ```
+
+When public or regulated environments require supply-chain pinning, inspect
+remote installer scripts and prefer pinned package versions or checksum
+verification before execution.
 
 For Desktop app rebuilds, inspect the repo's current instructions before running them. Back up `~/codex-app` before replacing it:
 

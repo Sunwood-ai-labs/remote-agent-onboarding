@@ -21,3 +21,5 @@ This skill contains commands that inspect and sometimes modify a Codex user's lo
 - VM disks and snapshots
 
 Back up sqlite databases before modifying automation rows. Prefer harmless smoke-test prompts that only write to a disposable local file.
+
+Some documented setup flows download official installers or packages. In regulated environments, inspect scripts before execution and add checksum, signature, mirror, or version-pinning controls that match your policy.
