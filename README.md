@@ -1,8 +1,19 @@
-![Remote Agent Onboarding Skill - ECLIPSE -](assets/eclipse-header.png)
-
-# Remote Agent Onboarding Skill - ECLIPSE -
-
-[English](README.md) | [日本語](README.ja.md)
+<div align="center">
+  <img src="assets/eclipse-header.png" alt="Remote Agent Onboarding Skill - ECLIPSE -" width="100%">
+  <h1>Remote Agent Onboarding Skill - ECLIPSE -</h1>
+  <p>
+    <a href="README.md">English</a> |
+    <a href="README.ja.md">日本語</a>
+  </p>
+  <p>
+    <a href="https://github.com/Sunwood-ai-labs/remote-agent-onboarding/actions/workflows/validate.yml"><img alt="Validate" src="https://github.com/Sunwood-ai-labs/remote-agent-onboarding/actions/workflows/validate.yml/badge.svg"></a>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+    <img alt="Codex Skill" src="https://img.shields.io/badge/Codex-Skill-111827">
+    <img alt="Platform: Ubuntu" src="https://img.shields.io/badge/Platform-Ubuntu-E95420">
+    <img alt="Chrome/CDP" src="https://img.shields.io/badge/Chrome-CDP-4285F4">
+    <img alt="Automations" src="https://img.shields.io/badge/Automations-Smoke%20Test-7C3AED">
+  </p>
+</div>
 
 Codex skill for creating, repairing, and verifying a Linux remote-agent workstation with SSH, X11/Xfce, Codex Desktop, Chrome, Browser/IAB, mobile remote-control, and Codex Automations proof surfaces.
 
