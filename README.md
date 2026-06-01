@@ -15,18 +15,23 @@
   </p>
 </div>
 
-Codex skill for creating, repairing, and verifying a Linux remote-agent workstation with SSH, X11/Xfce, Codex Desktop, Chrome, Browser/IAB, mobile remote-control, and Codex Automations proof surfaces.
+Codex skill for creating, repairing, and verifying a Linux remote-agent workstation with SSH, X11 desktop proof, Codex Desktop, Chrome, Browser/IAB, mobile remote-control, workspace hygiene, and Codex Automations proof surfaces.
 
 The skill is written for operators who need evidence-backed VM readiness rather than package-version-only checks.
 
 ## What This Covers
 
-- Ubuntu-style remote agent VM setup and repair
-- Codex CLI/Desktop launch and live GUI verification
+- Ubuntu/Linux remote agent VM setup and repair
+- SSH key login, service state, and LAN port reachability checks
+- Codex CLI/Desktop launch and live GUI screenshot verification
+- Default Codex posture checks for `gpt-5.5`, low reasoning, full access, and no approval prompts
 - Persistent Chrome profile setup and CDP checks
 - Browser/IAB socket and log verification
-- Mobile remote-control enrollment checks
+- Codex auth migration from another VM without copying target identity fields
+- Mobile remote-control daemon, socket, and enrollment checks
 - Codex Automations local-state, UI, and smoke-run verification
+- Blank/locked screen prevention and screenshot troubleshooting
+- Dedicated workspace setup and reversible local thread cleanup
 - Proxmox-oriented VM checks where available
 
 ## Install
@@ -56,6 +61,27 @@ Use remote-agent-onboarding to verify this Ubuntu remote-agent VM.
 Check SSH, Codex Desktop, Chrome, Browser/IAB, mobile remote control, and Automations as separate proof surfaces.
 ```
 
+## Release Surface
+
+`SKILL.md` is the source of truth for operator behavior. The README tracks the
+same top-level capabilities, but intentionally avoids duplicating every command.
+For v0.1.0, the skill emphasizes these guardrails:
+
+- Do not call SSH complete from Proxmox/QGA alone. Verify key login, `sshd`
+  enabled/active, port 22 listening, and LAN reachability.
+- Do not call Codex Desktop ready from process output alone. Capture and inspect
+  a visible Desktop surface, and reject blank, locked, or all-black screenshots.
+- Do not infer full-access defaults from config text alone. Smoke-test the
+  runtime for model, reasoning effort, sandbox mode, and approval policy.
+- Do not claim mobile setup from `remote_control = true` alone. Verify the
+  standalone daemon, control socket, and enrollment state.
+- Do not copy an entire `.codex` directory between VMs for auth migration. Copy
+  minimal auth material and preserve the target VM identity.
+- Do not wipe all local Codex threads during cleanup by default. Use confirmed
+  smoke-test `THREAD_IDS`; reserve all-history cleanup for explicit requests.
+- Keep a dedicated agent workspace and redirect legacy defaults such as
+  `~/Documents/Codex` only after backing up existing content.
+
 ## Validation
 
 Run the same checks used by CI:
@@ -79,6 +105,10 @@ Before publishing logs, screenshots, or copied VM state, remove:
 Automation smoke tests modify the local Codex sqlite database and must back up the DB first. Remove smoke jobs after verification so they do not continue running.
 
 Some setup commands intentionally download official installers or packages. Inspect remote scripts before running them when your environment requires pinning, checksum verification, or a stricter supply-chain policy.
+
+Local thread cleanup can modify `~/.codex/state_5.sqlite` and move session
+rollouts. Back up first, target only confirmed smoke-test thread IDs by default,
+and distinguish local VM history from account/cloud project history.
 
 ## License
 
