@@ -11,6 +11,8 @@
 *.xwd
 !assets/
 !assets/*.png
+!assets/article-evidence/
+!assets/article-evidence/*.png
 
 # Runtime and private Codex state
 .codex/

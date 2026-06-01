@@ -82,6 +82,35 @@ For v0.1.0, the skill emphasizes these guardrails:
 - Keep a dedicated agent workspace and redirect legacy defaults such as
   `~/Documents/Codex` only after backing up existing content.
 
+## Article Evidence
+
+The v0.1.0 guardrails were refined while writing and verifying two Japanese
+field reports in the local `note-article-archive` workspace.
+Representative images from those articles are copied into this repository so the
+release README shows the same proof surfaces the skill expects.
+
+### OS Setup From Mobile
+
+Source article archive slug:
+`note-article-archive/articles/eclipse02-os-setup`
+
+![ECLIPSE02 elementary OS setup article thumbnail](assets/article-evidence/eclipse02-os-setup-thumbnail.png)
+
+![ECLIPSE02 unlocked Japanese desktop proof](assets/article-evidence/eclipse02-os-unlocked-desktop.png)
+
+### Codex Desktop And Mobile Remote Control
+
+Source article archive slug:
+`note-article-archive/articles/eclipse02-remote-agent-mobile-desktop`
+
+![ECLIPSE02 Codex mobile desktop article thumbnail](assets/article-evidence/eclipse02-mobile-desktop-thumbnail.png)
+
+![Codex Desktop full-access task proof](assets/article-evidence/eclipse02-codex-fullaccess-task.png)
+
+![Codex mobile connected proof](assets/article-evidence/eclipse02-mobile-connected.png)
+
+![Dedicated workspace cleanup proof](assets/article-evidence/eclipse02-clean-workspace.png)
+
 ## Validation
 
 Run the same checks used by CI:
