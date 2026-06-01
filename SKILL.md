@@ -169,7 +169,10 @@ if db.exists():
         if r["rollout_path"]:
             p = pathlib.Path(r["rollout_path"]).expanduser()
             if p.exists() and str(p.resolve()).startswith(str((home / ".codex").resolve())):
-                shutil.move(str(p), str(archive / p.name))
+                dest = archive / p.name
+                if dest.exists():
+                    dest = archive / f"{p.stem}-{r['id']}{p.suffix}"
+                shutil.move(str(p), str(dest))
     ids = [r["id"] for r in rows]
     if ids:
         q = ",".join("?" for _ in ids)
@@ -217,6 +220,10 @@ sqlite3 --version >/dev/null 2>&1 || sudo apt-get update -qq && sudo apt-get ins
 sqlite3 ~/.codex/state_5.sqlite "select server_name, environment_id, updated_at from remote_control_enrollments;"
 '
 ```
+
+For public, regulated, or release-sensitive environments, do not blindly run the
+remote installer. Inspect the fetched script, prefer pinned versions or checksum
+verification where available, and report any remaining supply-chain assumption.
 
 Mobile setup is not complete from any single one of these signals alone:
 
@@ -631,12 +638,15 @@ PIDs or launch a fresh Desktop if none is running:
 
 ```bash
 ssh -i KEY eclipse@VM_IP '
-export DISPLAY=:0 XAUTHORITY=/var/run/lightdm/root/:0 XDG_RUNTIME_DIR=/run/user/1000
+export DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000
+for xauth in "$HOME/.Xauthority" /var/run/lightdm/root/:0; do
+  [ -r "$xauth" ] && export XAUTHORITY="$xauth" && break
+done
 nohup /home/eclipse/codex-app/start.sh \
   >~/.cache/codex-desktop-auth-migration.log 2>&1 < /dev/null &
 sleep 10
 pgrep -af "/home/eclipse/codex-app|codex app-server|webview-server" | head -40
-DISPLAY=:0 XAUTHORITY=/var/run/lightdm/root/:0 xwininfo -root -tree 2>&1 |
+DISPLAY=:0 xwininfo -root -tree 2>&1 |
   egrep "Codex|codex" | head -60
 '
 ```
