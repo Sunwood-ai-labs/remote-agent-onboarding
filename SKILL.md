@@ -100,6 +100,68 @@ Operation means using the prepared workstation safely:
 - For form submissions, confirm visible UI commitment, especially chips/tokens and uploaded filenames.
 - End by reporting which surfaces were actually verified and which were not.
 
+## Per-Agent VPN Isolation
+
+Use this pattern when a remote-agent VM will browse, crawl, test, or inspect
+untrusted external sites and the user wants reduced exposure from the home LAN
+or host machine.
+
+The pragmatic default is per-VM manual VPN configuration:
+
+- keep the commercial VPN web/account login on the user's trusted browser
+  surface, not inside the agent VM;
+- copy only the per-VM manual configuration to the agent VM, such as Surfshark
+  OpenVPN `.ovpn` files or WireGuard `.conf` files;
+- store the minimum generated credentials on the VM with root-only permissions;
+- give each agent VM a distinct location/config when the user wants different
+  public exit IPs;
+- verify the actual external IP and country from inside each VM after the tunnel
+  is up.
+
+For Surfshark OpenVPN, the useful workflow is:
+
+1. Get the manual OpenVPN service credentials from the authenticated Surfshark
+   account surface.
+2. Get official location configs from Surfshark, for example the current
+   configurations ZIP exposed by Surfshark's configuration endpoint.
+3. Place each VM's config under `/etc/openvpn/client/<agent>.conf`.
+4. Replace `auth-user-pass` with
+   `auth-user-pass /etc/openvpn/client/surfshark.auth`.
+5. Store `/etc/openvpn/client/surfshark.auth` as `0600 root:root`.
+6. Start and enable `openvpn-client@<agent>.service`.
+7. Verify `tun0`, `systemctl is-active`, `curl -4 https://ifconfig.me`, and
+   `ipinfo.io` or an equivalent IP intelligence endpoint.
+
+Do not log into the VPN GUI app inside the agent VM unless the user explicitly
+asks for that. Manual configuration is enough for this isolation pattern and
+avoids leaving a full VPN account session on every agent workstation.
+
+Expected routing behavior:
+
+- LAN SSH from the operator machine to the VM's `192.168.x.x` address normally
+  remains usable because the local subnet route stays on the VM NIC.
+- External VM traffic such as browser, `curl`, API clients, `git`, and package
+  downloads uses the VPN tunnel when the pushed OpenVPN route installs
+  `0.0.0.0/1` and `128.0.0.0/1`.
+- This is simpler and less leaky than browser-only VPN when all VM outbound
+  traffic is allowed to use VPN.
+- Browser-only VPN or proxying is a separate design for cases where SSH, `apt`,
+  `git`, or API calls must keep normal egress while only Chrome uses VPN.
+
+When reporting success, include concrete proof surfaces without exposing
+secrets:
+
+- VM name and VMID when known;
+- VPN service active/enabled state;
+- tunnel interface existence;
+- before/after external IP;
+- resolved city/country or provider;
+- whether LAN SSH remained reachable;
+- whether the setup routes the whole VM or only the browser.
+
+Never print VPN passwords, auth files, private keys, or full account session
+material in the final response.
+
 ## Completion Guardrails
 
 Before saying an Eclipse/remote-agent VM is ready, run a final live check close
