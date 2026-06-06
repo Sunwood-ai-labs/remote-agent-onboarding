@@ -29,6 +29,8 @@ SSH、Linuxデスクトップ表示、Codex Desktop、Chrome、Browser/IAB、モ
 - Browser/IABソケットとログ確認
 - 別VMからのCodex認証移行。ただし対象VMのidentityはコピーしない
 - Codex mobile remote controlのdaemon、socket、登録状態確認
+- ECLIPSE fleetの命名と、スマホ側に見えるidentity更新確認
+- VMごとのVPN分離と、VM全体の外向き通信の証跡確認
 - Codex Automationsのローカル状態、UI、スモーク実行確認
 - ブランク画面、ロック画面、黒いスクリーンショットの再発防止
 - 専用ワークスペース作成と、復旧可能なローカルスレッド整理
@@ -72,6 +74,15 @@ v0.1.0では、特に以下のガードレールを重視します。
   smoke-test `THREAD_IDS` を対象にし、全履歴削除は明示指示時だけにする。
 - 専用ワークスペースを作成し、`~/Documents/Codex` など既定パスを向ける場合は既存内容をバックアップする。
 
+v0.2.0では、この証跡面の分離を1台のVMからECLIPSE fleetへ広げます。
+
+- hostname、SSH alias、Desktop identity、remote-control enrollment、現在のスマホ/タブレット接続一覧で、fleet名を揃える。
+- 公開上のfleet命名は `ECLIPSE01-AURORA`、`ECLIPSE02-AQUA`、`ECLIPSE03-ONIZUKA`、`ECLIPSE04-TACHYON`、`ECLIPSE05-TEMPEST`、`ECLIPSE06-ONICADIA`、`ECLIPSE07-HARINA` とする。
+- スマホに見える名前はLinux hostnameの単純な反映ではなく、backend registrationの状態として扱う。新しい `remote-control start` のhandoffと現在のスマホ側証跡で新名が見えるまで、rename完了扱いにしない。
+- Codex認証移行と、clone先VMのremote-control identityを分ける。authは最小限だけ移し、remote-control identityは対象VM側で再生成する。
+- VMごとのVPN証跡はCodex証跡と分けて報告する。service状態、tunnel interface、外部IP/国、LAN SSHが維持されているかを別々に見る。
+- 公開リリース素材には、installation ID、environment ID、server ID、IPアドレス、VPN秘密情報、アカウント情報を出さない。
+
 ## スクリーンショット
 
 このスキルがVMオンボーディングで求める視覚的な確認例です。実際のデスクトップ画面、利用可能なCodex Desktop、Codexモバイル接続、専用ワークスペース整理後の状態を示します。
@@ -91,6 +102,12 @@ v0.1.0では、特に以下のガードレールを重視します。
 ![Codexモバイル接続済み証跡](assets/article-evidence/eclipse02-mobile-connected.png)
 
 ![専用ワークスペース整理後の証跡](assets/article-evidence/eclipse02-clean-workspace.png)
+
+### ECLIPSE fleet 証跡
+
+v0.2.0のfleet証跡では、remote-control identityを更新した後のスマホ側命名を確認しています。
+
+![ECLIPSE fleet mobile connected proof](assets/article-evidence/eclipse-fleet-mobile-connected-v0.2.0.jpg)
 
 ## ファイル構成
 

@@ -13,6 +13,7 @@
 !assets/*.png
 !assets/article-evidence/
 !assets/article-evidence/*.png
+!assets/article-evidence/*.jpg
 
 # Runtime and private Codex state
 .codex/

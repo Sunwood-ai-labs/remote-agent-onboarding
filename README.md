@@ -29,6 +29,8 @@ The skill is written for operators who need evidence-backed VM readiness rather 
 - Browser/IAB socket and log verification
 - Codex auth migration from another VM without copying target identity fields
 - Mobile remote-control daemon, socket, and enrollment checks
+- ECLIPSE fleet naming and mobile-visible identity refresh checks
+- Per-agent VPN isolation checks for whole-VM outbound traffic
 - Codex Automations local-state, UI, and smoke-run verification
 - Blank/locked screen prevention and screenshot troubleshooting
 - Dedicated workspace setup and reversible local thread cleanup
@@ -82,6 +84,24 @@ For v0.1.0, the skill emphasizes these guardrails:
 - Keep a dedicated agent workspace and redirect legacy defaults such as
   `~/Documents/Codex` only after backing up existing content.
 
+For v0.2.0, the release extends the same proof-surface discipline from one
+remote-agent VM to an ECLIPSE fleet:
+
+- Keep fleet names consistent across hostname, SSH alias, Desktop identity,
+  remote-control enrollment, and the current phone/tablet connection list.
+- Use the public fleet naming pattern `ECLIPSE01-AURORA`,
+  `ECLIPSE02-AQUA`, `ECLIPSE03-ONIZUKA`, `ECLIPSE04-TACHYON`,
+  `ECLIPSE05-TEMPEST`, `ECLIPSE06-ONICADIA`, and `ECLIPSE07-HARINA`.
+- Treat mobile-visible names as backend-registration state, not as a direct
+  mirror of Linux hostnames. A rename is incomplete until a fresh
+  `remote-control start` handoff and current mobile proof show the new name.
+- Keep cloned VM identity separate from copied Codex authentication. Copy the
+  minimum auth material, then regenerate target-local remote-control identity.
+- Report per-agent VPN proof separately from Codex proof: service state,
+  tunnel interface, external IP/country, and whether LAN SSH still works.
+- Avoid exposing installation IDs, environment IDs, server IDs, IP addresses,
+  VPN secrets, or account details in public release material.
+
 ## Screenshots
 
 These screenshots show the kind of visual proof the skill expects during VM
@@ -103,6 +123,13 @@ remote-control connection, and a clean workspace state.
 ![Codex mobile connected proof](assets/article-evidence/eclipse02-mobile-connected.png)
 
 ![Dedicated workspace cleanup proof](assets/article-evidence/eclipse02-clean-workspace.png)
+
+### ECLIPSE Fleet Proof
+
+The v0.2.0 fleet proof shows the mobile-visible naming contract after the
+remote-control identity refresh:
+
+![ECLIPSE fleet mobile connected proof](assets/article-evidence/eclipse-fleet-mobile-connected-v0.2.0.jpg)
 
 ## Validation
 

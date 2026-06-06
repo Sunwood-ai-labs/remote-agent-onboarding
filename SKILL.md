@@ -41,6 +41,30 @@ Required proof surfaces:
   whether the user wants them kept. Local thread cleanup must distinguish the
   VM's local SQLite/session state from account/cloud project history.
 
+## ECLIPSE Fleet Naming
+
+When the user is operating an ECLIPSE fleet instead of a single example VM,
+keep the mobile-visible Codex Desktop name, VM hostname, SSH alias, and report
+name aligned. The canonical public fleet naming pattern for the v0.2.0 release
+is:
+
+- `ECLIPSE01-AURORA`
+- `ECLIPSE02-AQUA`
+- `ECLIPSE03-ONIZUKA`
+- `ECLIPSE04-TACHYON`
+- `ECLIPSE05-TEMPEST`
+- `ECLIPSE06-ONICADIA`
+- `ECLIPSE07-HARINA`
+
+Treat this as a naming contract, not only cosmetic labeling. If a VM is cloned
+or renamed, verify the name on every surface that the user will see: shell
+hostname, Desktop identity, remote-control enrollment `server_name`, and the
+current mobile connection list.
+
+Do not report a rename as complete from `hostnamectl` alone. Mobile surfaces
+can continue to show stale names until the remote-control backend registration
+is refreshed and Codex Desktop is restarted.
+
 ## Setup vs Operation
 
 Keep setup and operation separate in both the work and the final report.
@@ -423,6 +447,34 @@ or a `remote_control_enrollments` row for the source server name, back up
 `~/.codex/.codex-global-state.json` and `~/.codex/state_5.sqlite*`, remove the
 stale source keys/rows, then restart Desktop so it creates a fresh
 `server_name=<clone-name>, app_server_client_name=Codex Desktop` enrollment.
+
+For mobile-visible renames, also require a fresh backend handoff. The mobile app
+does not derive its visible list from the VM hostname alone. A complete rename
+or clone repair requires:
+
+- target-local `electron-local-remote-control-installation-id`
+- target-local `electron-local-remote-control-environment-id`
+- a live `codex remote-control start --json` result for the target VM
+- `remote_control_enrollments.server_name` equal to the intended ECLIPSE name
+- Codex Desktop restarted after the identity cleanup
+- current phone/tablet screenshot or user confirmation showing the new name
+
+If the phone still shows `ECLIPSE03` instead of `ECLIPSE03-ONIZUKA`, the rename
+is not complete even if the Linux hostname and local database were already
+edited. Re-run the identity cleanup, restart the daemon/Desktop pair, and ask
+for the current mobile surface before closing the task.
+
+When reporting fleet readiness, keep these proof surfaces separate:
+
+- setup: SSH, GUI, Codex CLI/Desktop, Chrome, Browser/IAB, workspace
+- identity: hostname, Desktop name, fresh remote-control enrollment
+- mobile: current phone/tablet visible list and connection state
+- VPN: per-VM tunnel service, tunnel interface, external IP/country proof
+- operation: requested project, browser, or automation task readiness
+
+Do not imply every fleet member has current live VPN, Codex, or mobile proof
+unless each member was checked in the current run or the report explicitly says
+the evidence is from a dated handoff.
 
 For Codex Automations proof, verify local state, Desktop UI, and runtime
 execution. Read [references/codex-automations.md](references/codex-automations.md)
